@@ -1,0 +1,235 @@
+PODWATCHER USAGE INSTRUCTIONS
+===============================
+
+PRODUCT OVERVIEW & PREREQUISITES
+----------------------------------
+PodWatcher is a stateless monitoring agent designed to run within your Kubernetes cluster.
+It observes pod lifecycle events and streams actionable P1/P2 alert cards with automatic
+RESOLVED notifications to your designated communication channels to reduce MTTR and alert
+fatigue. No application code modification, instrumentation library, or recompilation is
+required — PodWatcher monitors any containerised workload regardless of programming language
+or runtime.
+
+Key capabilities in v1.0.5:
+
+  Alerting — Proactive & Reactive:
+  - P1 (Critical) and P2 (Warning) prioritised alert cards dispatched to Teams and/or Slack
+  - P1 triggers: CrashLoopBackOff, OOMKilled, NodeNotReady, ImagePullBackOff, SLO breach
+  - P2 triggers: CPU throttle, memory pressure, endpoint degradation, storage events
+  - Impact-based alerting reduces noise — only actionable signals reach your team
+  - RESOLVED cards dispatched automatically when workload returns to healthy state
+  - Time-to-Resolve (TTR) included in every RESOLVED card to support MTTR/MTTD reporting
+
+  Triage & Error Budget:
+  - Full exit code triage (OOMKilled/SIGKILL, SIGSEGV, SIGTERM, application errors, etc.)
+  - Dynamic log enrichment — signal-bearing lines (stack traces, crash tokens) extracted
+    and included in the alert card where container logs are available
+  - Saves error budget by surfacing root cause at alert time, reducing investigation cycles
+  - Diagnostic kubectl commands pre-populated in every alert card for instant triage
+
+  Noise Suppression & Deduplication:
+  - Anti-flap exponential back-off: min(30s x 2^restarts, 300s) per pod
+  - Fingerprint deduplication: re-alerts suppressed when failure reason is unchanged
+  - Workload cooldown (300s): suppresses repeat alerts unless the failure mode changes
+  - Blast-radius mute: P2 app-tier alerts suppressed during node/DNS outages to prevent
+    alert storms. P1 alerts always bypass all suppression gates.
+
+  FinOps — Cost Optimisation:
+  - Cluster CPU and memory usage vs. configuration analysis (weekly FinOps report)
+  - Identifies over-provisioned workloads where requests >> actual usage (waste detection)
+  - Resource saturation alerts when workloads approach limits (right-sizing signals)
+  - HPA ceiling monitor — alerts when autoscaler is pegged at max replicas
+
+  GenAI / Inference Workload Monitoring (Zero-Touch Auto-Discovery):
+  - Automatically detects inference runtimes: vLLM, Triton, TGI, KServe, Ollama,
+    BentoML, TorchServe, LLaMA, DeepSpeed, and more — no labels or config required
+  - Monitors token throughput (tokens/sec), Time to First Token (TTFT ms),
+    and inference success rate (%) per workload
+  - Sustained breach alerting with configurable breach window (default 5 minutes)
+    to suppress transient GPU warm-up spikes
+  - Metrics exposed at /metrics with workload, namespace, node, and cluster labels
+
+  Prometheus Metrics (/metrics on port 8080):
+  - Alert dispatch counts (total, P1, Teams, Slack, webhook failures)
+  - Alert queue depth, leader election status, startup state reconstruction
+  - Per-workload GenAI SLI metrics (tokens/sec, TTFT, success rate)
+
+  High Availability (Heavy-Duty Clusters):
+  - Scale to 2 or more replicas for HA deployments
+  - Built-in leader election via Kubernetes coordination.k8s.io/leases
+  - Only the leader pod dispatches alerts — no duplicate notifications
+  - Enable with: --set replicaCount=2 --set leaderElection.enabled=true
+
+Infrastructure:
+  - An active Kubernetes cluster (EKS, AKS, GKE, GKE Autopilot, OpenShift, or self-managed)
+  - Minimum Kubernetes version: 1.21+
+
+Required Tools:
+  - AWS CLI:      https://docs.aws.amazon.com/cli/latest/userguide/getting-started-quickstart.html
+  - Helm v3.8.0+: https://helm.sh/docs/intro/install/
+  - kubectl: Configured with cluster-admin access
+
+Notification Setup (configure one or both):
+  - MS Teams:  https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook
+  - Slack:     https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/
+
+
+PRICING
+--------
+
+  Base price: $199 USD per month
+
+  Discounted subscription terms are available:
+    - 12-month commitment: reduced monthly rate
+    - 24-month commitment: further reduced monthly rate
+    - 36-month commitment: best available rate
+
+  Subscribe and manage your plan via AWS Marketplace.
+
+
+DEPLOYMENT INSTRUCTIONS
+------------------------
+
+Step 1: Authenticate with the AWS Marketplace Registry
+
+  aws ecr get-login-password --region us-east-1 \
+    | helm registry login --username AWS --password-stdin \
+      709825985650.dkr.ecr.us-east-1.amazonaws.com
+
+
+Step 2: Update Kubernetes Context
+
+  Ensure your kubectl context is pointing to the correct cluster:
+
+  aws eks update-kubeconfig --region <YOUR_REGION> --name <YOUR_CLUSTER_NAME>
+
+
+Step 3: Install the PodWatcher Agent
+
+  RECOMMENDED: Use the helmupgrade.sh script to avoid webhook URL parsing errors.
+  Webhook URLs for Teams and Slack contain special characters (&, ?, =, %) that
+  bash misinterprets when passed inline via --set webhooks.teams="...". This causes
+  silent URL corruption and failed webhook delivery.
+
+  Download and run the deploy script:
+
+    curl -O https://raw.githubusercontent.com/saqtek/podwatcher-install/main/helmupgrade.sh
+    chmod +x helmupgrade.sh
+
+  Open helmupgrade.sh in a text editor and set the four variables at the top:
+    CLUSTER_NAME        — your cluster name (appears in every alert card)
+    WATCH_NAMESPACES    — e.g. "default\,production" or blank ("") to watch all
+    TEAMS_WEBHOOK       — your MS Teams incoming webhook URL (optional)
+    SLACK_WEBHOOK       — your Slack incoming webhook URL (optional)
+
+  Then run:
+    bash helmupgrade.sh
+
+  ALTERNATIVE: Direct Helm command (webhook URL MUST be on a single unbroken line):
+
+  helm upgrade --install podwatcher \
+    oci://709825985650.dkr.ecr.us-east-1.amazonaws.com/saqtek-us/podwatcher \
+    --version 1.0.6 \
+    --namespace podwatcher --create-namespace \
+    --set clusterName="<YOUR_CLUSTER_NAME>" \
+    --set monitoring.watchNamespaces="default\,production" \
+    --set webhooks.teams="<YOUR_TEAMS_WEBHOOK_URL>" \
+    --set webhooks.slack="<YOUR_SLACK_WEBHOOK_URL>" \
+    --atomic
+
+  IMPORTANT: Do NOT wrap the webhook URL across multiple lines in your terminal.
+  Even a single line-break in the URL will be encoded as %0A, causing a 404 from
+  the Teams or Slack endpoint. Use the helmupgrade.sh script to avoid this entirely.
+
+  Notes:
+  - To monitor ALL namespaces, omit monitoring.watchNamespaces or leave it blank.
+  - Webhook parameters are optional. PodWatcher starts cleanly with zero webhooks.
+  - Use webhooks.teams or webhooks.slack independently — you do not need both.
+  - --atomic rolls back automatically if the pod does not reach Ready within timeout.
+
+
+HEALTH MONITORING & VERIFICATION
+----------------------------------
+
+Confirm the pod is running:
+  kubectl get pods -n podwatcher
+
+Inspect live monitoring logs:
+  kubectl logs -f deployment/podwatcher -n podwatcher
+
+End-to-End Alert Test:
+  Run a pod that exits with an error in a monitored namespace:
+
+  kubectl run test-alert --image=busybox --restart=Always \
+    --namespace=default -- sh -c "exit 1"
+
+  Verify a P2 alert card appears in your Teams or Slack channel within ~60 seconds.
+  A RESOLVED card follows automatically once the pod is deleted.
+
+  Clean up after testing:
+  kubectl delete pod test-alert -n default
+
+
+DATA SECURITY & ENCRYPTION
+----------------------------
+
+  Data Isolation:   Runs entirely within your VPC. Data only leaves via encrypted
+                    notification payloads to your configured Teams or Slack endpoint.
+                    PodWatcher makes no outbound connections to any third-party
+                    observability, telemetry, or vendor endpoint.
+
+  Encryption:       All outbound communication uses TLS 1.2+.
+
+  Stateless:        No persistent storage. All operational state (incident registry,
+                    cooldown timers) is held exclusively in process memory and is
+                    ephemeral by design. PodWatcher never writes to, patches, creates,
+                    or deletes any Kubernetes resource, ConfigMap, Secret, or annotation.
+                    On restart, state is reconstructed by reading Kubernetes Warning
+                    events from the last two hours — a read-only operation.
+
+  Alert Payloads:   Contain only Kubernetes object metadata (namespace, pod name, node
+                    name, exit code, log snippet capped at 1,500 characters). No
+                    credentials, secrets, or cluster configuration are transmitted.
+
+  Sensitive Data:   Webhook URLs are passed as environment variables under your control
+                    via Helm --set values or a values file.
+
+  RBAC:             The Helm chart deploys a dedicated ServiceAccount and ClusterRole
+                    scoped to least-privilege read-only permissions (get, list, watch)
+                    for pods, logs, events, nodes, and workload resources.
+                    pods/exec is used exclusively for log enrichment — never to run
+                    commands inside production containers.
+                    Write access is granted only to coordination.k8s.io/leases for
+                    optional leader election (default: disabled).
+
+
+RESOURCE QUOTAS & SERVICE LIMITS
+----------------------------------
+
+  Memory Limit: 512Mi
+  CPU Limit:    400m (0.4 vCPU)
+
+  To update your configuration, modify your values and re-run:
+
+  helm upgrade --install podwatcher \
+    oci://709825985650.dkr.ecr.us-east-1.amazonaws.com/saqtek-us/podwatcher \
+    --version 1.0.6 \
+    --namespace podwatcher \
+    --reuse-values
+
+
+UNINSTALLATION
+---------------
+
+  To remove the agent and all associated RBAC permissions:
+
+  helm uninstall podwatcher -n podwatcher
+  kubectl delete namespace podwatcher
+
+
+SUPPORT
+--------
+
+  For issues, feature requests, or questions:
+  Email:       support@saqtek.com
+  Quick Start: https://github.com/saqtek/podwatcher-install
