@@ -334,7 +334,8 @@ to do — the moment it happens — delivered to the channel your team already u
 
 For historical trend analysis, SLO compliance reporting, and executive
 dashboards on Amazon Managed Grafana, see the companion product:
-**EKS Observability Accelerator** — available separately on AWS Marketplace.
+**[EKS Observability Accelerator: MTTR Reduction & Dashboard Suite](https://aws.amazon.com/marketplace/pp/prodview-jw5af333chodi)**
+— available on AWS Marketplace.
 
 ---
 
