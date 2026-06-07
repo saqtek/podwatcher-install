@@ -8,7 +8,7 @@ set -euo pipefail
 
 CLUSTER_NAME="podwatcher-preprod-us-east-1"
 WATCH_NAMESPACES="default\,test"   # leave blank ("") to watch all namespaces; use \, between namespaces
-TEAMS_WEBHOOK="https://defaultfd7e1a2c168845a7a331a1a24ae2fb.53.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/f9ecce2722ba480d99fd4a6922eb4c8f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=x-4VkcG33gRrB4Ta-MXyW4s957tACfwn0xT_uPo6IVc"
+TEAMS_WEBHOOK=""
 SLACK_WEBHOOK=""                        # paste your Slack webhook URL here (optional)
 
 # -----------------------------------------------------------------------------
