@@ -45,11 +45,27 @@ deduplication (see Noise Suppression below).
   reason (SIGKILL, SIGSEGV, SIGTERM, application error, and more)
 - ImagePullBackOff and ErrImagePull — image registry failures with pull advice
 
-**Log enrichment**
-- Signal-bearing log lines extracted automatically at alert time — stack traces,
-  crash tokens, and error patterns surfaced without the engineer opening a terminal
-- Log snippet capped at 1,500 characters and sanitised before dispatch
-- Falls back gracefully when container logs are unavailable
+**Dynamic log enrichment**
+
+PodWatcher does not just attach raw logs. It runs a tier-ranked signal extractor
+on every log stream at alert time:
+
+1. Log noise (health checks, routine info lines) stripped before any analysis
+2. P1 crash signals identified and prioritised
+3. Python traceback blocks detected and extracted as complete blocks with start
+   and end lines intact
+4. P2 error signals extracted with ±3 lines of surrounding context
+5. Repeated lines deduplicated with a `[×N]` repeat counter
+6. Remaining line budget filled with tail output after the last matched signal
+7. A summary header prepended: signal counts, traceback blocks detected, and
+   how many of the total log lines are shown
+
+Each alert card receives only the lines that matter — not a raw 500-line dump.
+A secondary pass extracts the first recognisable error or exception token even
+when primary patterns do not match, ensuring maximum signal capture.
+
+Falls back gracefully when container logs are unavailable. Log content is
+sanitised and capped at 1,500 characters before dispatch.
 
 **Triage commands**
 - Pre-populated `kubectl describe`, `kubectl logs`, and diagnostic commands
@@ -138,26 +154,30 @@ what already burned.
 
 ## GenAI / Inference Workload Monitoring
 
-**Zero-config auto-discovery**
+**Zero-config workload discovery**
 
 PodWatcher automatically identifies inference workloads by scanning container
-image names and pod labels. Supported runtimes include:
+image names and pod labels — no annotations, no configuration changes required
+to start monitoring. Supported runtimes detected automatically include:
 
 vLLM · Triton Inference Server · TGI (Text Generation Inference) · TRT-LLM ·
 Ray Serve · Ollama · LLaMA · Mistral · DeepSpeed · Hugging Face Transformers ·
 KServe · TorchServe · ONNX Runtime · TensorRT · BentoML · SGLang · LMDeploy
 
-No labels, no annotations, no configuration changes required.
+**SLI metrics**
 
-**SLI metrics monitored per inference workload**
+Once a workload is discovered, PodWatcher reads SLI values from pod annotations
+written by the inference runtime or a sidecar:
 
-| Metric | Default SLO threshold | Alert type |
-|---|---|---|
-| Token throughput (tokens/sec) | 10 tok/s minimum | P2 — low throughput |
-| Time to First Token (TTFT ms) | 2,000 ms maximum | P2 — high latency |
-| Inference success rate (%) | 95% minimum | P1 — success rate breach |
+| Annotation | Metric | Default SLO threshold | Alert type |
+|---|---|---|---|
+| `podwatcher/tokens-per-second` | Token throughput | 10 tok/s minimum | P2 — low throughput |
+| `podwatcher/ttft-ms` | Time to First Token | 2,000 ms maximum | P2 — high latency |
+| `podwatcher/inference-success-rate` | Success rate (%) | 95% minimum | P1 — success rate breach |
 
 All thresholds are configurable via Helm values or environment variables.
+Workloads that do not expose annotations are still discovered and counted —
+threshold alerting activates when annotations are present.
 
 **Sustained-breach window**
 
@@ -168,7 +188,8 @@ alerts.
 **Prometheus metrics**
 
 Per-workload GenAI SLI metrics are exposed at `/metrics` on port 8080 with full
-labels: workload, namespace, pod, node, and cluster.
+labels: workload, namespace, pod, node, and cluster. A `podwatcher_genai_workloads_discovered`
+gauge tracks total discovered inference pods at all times.
 
 ---
 
@@ -265,6 +286,28 @@ PodWatcher exposes a `/metrics` endpoint on port 8080 (Prometheus text format):
 | `podwatcher_genai_success_rate_pct` | Per-workload inference success rate |
 
 A liveness probe (`/healthz`) and readiness probe (`/readyz`) are included.
+
+---
+
+## Test Coverage
+
+PodWatcher ships with an automated test suite that runs on every commit via
+GitHub Actions CI.
+
+| Test class | What is verified |
+|---|---|
+| Exit code classification | Every exit code decoded correctly including edge cases and null input |
+| Log sanitisation | Null byte stripping, truncation at limit, truncation marker, empty and None input |
+| kubectl command formatting | Placeholder substitution, missing placeholder safety, jsonpath template integrity |
+| Alert card theming | P1 red, P2 amber, RESOLVED green, unknown level fallback |
+| Alert map completeness | Every waiting-state entry has required fields, priority classification verified |
+| Cooldown and deduplication | First alert dispatched, same exit code suppressed, different exit code bypasses, RESOLVED clears cooldown |
+| Blast-radius mute | P2 suppressed by namespace mute, P2 suppressed by node name, expired mute does not suppress |
+| TTR formatting | Seconds, minutes+seconds, hours+minutes+seconds all format correctly |
+| AWS Marketplace registration | Successful registration, no credentials, unsubscribed customer, throttling, boto3 unavailable |
+| PagerDuty integration | No routing key skips call, P1 maps to critical severity, P2 maps to warning severity |
+
+**53 tests. CI green.**
 
 ---
 
