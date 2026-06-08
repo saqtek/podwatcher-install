@@ -7,8 +7,8 @@ set -euo pipefail
 # Edit the variables below to match your helmupgrade.sh settings.
 # -----------------------------------------------------------------------------
 
-CLUSTER_NAME="podwatcher-preprod-us-east-1"
-WATCH_NAMESPACES="default\,test"
+CLUSTER_NAME="my-cluster"
+WATCH_NAMESPACES=""
 TEAMS_WEBHOOK=""
 SLACK_WEBHOOK=""
 PAGERDUTY_ROUTING_KEY=""
@@ -18,13 +18,12 @@ PAGERDUTY_ROUTING_KEY=""
 # -----------------------------------------------------------------------------
 helm upgrade --install podwatcher \
   oci://709825985650.dkr.ecr.us-east-1.amazonaws.com/saqtek-us/podwatcher \
-  --version 1.0.7 \
+  --version 1.0.8 \
   --namespace podwatcher \
   --create-namespace \
   --atomic \
   --set clusterName="${CLUSTER_NAME}" \
   --set monitoring.watchNamespaces="${WATCH_NAMESPACES}" \
-  --set image.registry=709825985650.dkr.ecr.us-east-1.amazonaws.com \
   --set image.tag=1.0.6 \
   --set replicaCount=2 \
   --set leaderElection.enabled=true \
