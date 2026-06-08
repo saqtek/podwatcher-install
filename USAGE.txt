@@ -3,18 +3,29 @@ PodWatcher v1.0.8 — Installation Guide
 
 PREREQUISITES
 -------------
-- kubectl configured and connected to your EKS cluster
-- Helm 3.8 or later (OCI support required)
-- AWS CLI configured with credentials for your cluster account
-- AWS Marketplace subscription active
-- Microsoft Teams, Slack, or PagerDuty webhook URL (optional — PodWatcher starts without one)
+PodWatcher is a stateless monitoring agent that runs inside your Kubernetes
+cluster. It observes pod events and streams notifications to Teams, Slack, or
+PagerDuty to reduce MTTR and alert fatigue.
+
+Required tools:
+- AWS CLI    : https://docs.aws.amazon.com/cli/latest/userguide/getting-started-quickstart.html
+- Helm 3.8+  : https://helm.sh/docs/intro/install/
+- kubectl    : Configured with cluster-admin access
+
+AWS Marketplace subscription active.
+
+Notification setup (optional — PodWatcher starts without a webhook):
+- Microsoft Teams : https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook
+- Slack           : https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/
+- PagerDuty       : Create an Events API v2 integration and copy the routing key
 
 
 STEP 0 — Confirm you are connected to the correct cluster
 ----------------------------------------------------------
 kubectl config current-context
 
-Verify the output matches your intended cluster before proceeding.
+Verify the output matches your intended cluster. To switch context:
+aws eks update-kubeconfig --region <YOUR_REGION> --name <YOUR_CLUSTER_NAME>
 
 
 STEP 1 — Download the install script
@@ -28,6 +39,8 @@ aws ecr get-login-password --region us-east-1 | helm registry login --username A
 
 You should see: Login Succeeded
 
+Note: The ECR token expires after 12 hours. Re-run this command before upgrading.
+
 
 STEP 3 — Edit the script variables
 ------------------------------------
@@ -38,10 +51,8 @@ Open helmupgrade.sh and set:
   SLACK_WEBHOOK         — your Slack incoming webhook URL (optional)
   PAGERDUTY_ROUTING_KEY — your PagerDuty Events API v2 integration key (optional)
   WATCH_NAMESPACES      — comma-separated namespaces to monitor, or leave blank for all
-
-NOTE — AWS Marketplace subscribers: the ServiceAccount name is automatically
-substituted by AWS at deploy time. If installing directly (non-MP), add:
-  --set serviceAccount.name=podwatcher
+  SA_NAME               — AWS Marketplace subscribers: leave blank (AWS substitutes automatically)
+                          Direct installs (AKS, GKE, on-prem): set to "podwatcher"
 
 
 STEP 4 — Run the install
@@ -70,9 +81,40 @@ Clean up:
 kubectl delete pod test-crash --ignore-not-found
 
 
+DATA SECURITY & RBAC
+---------------------
+- Data isolation  : Runs entirely within your VPC. Data only leaves via encrypted
+                    alert payloads to your configured webhook endpoints.
+- Encryption      : All outbound communication uses TLS 1.2+.
+- Stateless       : No persistent storage. Events are processed in-memory and
+                    purged immediately — nothing written to disk.
+- Webhook secrets : Webhook URLs and keys are passed at deploy time and stored
+                    as Kubernetes environment variables under your control.
+- RBAC read-only  : Dedicated ServiceAccount with least-privilege read-only
+                    permissions (get, list, watch) for pods, logs, events,
+                    deployments, and nodes — cluster-wide.
+- RBAC write      : Write access (create, get, update, patch) scoped exclusively
+                    to coordination.k8s.io/leases in the PodWatcher release
+                    namespace only. No write access outside that namespace.
+                    This satisfies zero-trust and defence-in-depth requirements
+                    for enterprise and regulated environments.
+- Container       : Non-root (UID 10001), read-only root filesystem, all Linux
+                    capabilities dropped, seccomp RuntimeDefault.
+
+
+RESOURCE QUOTAS
+---------------
+- Memory limit  : 512Mi
+- CPU limit     : 400m (0.4 vCPU)
+- Memory request: 128Mi
+- CPU request   : 100m
+
+Peak observed under 100 simultaneous pod crashes: 87Mi memory / 45m CPU.
+
+
 UPGRADING
 ---------
-1. Run STEP 2 (ECR login) — token expires after 12 hours
+1. Re-run STEP 2 (ECR login — token expires after 12 hours)
 2. Update the --version flag in helmupgrade.sh to the new version
 3. Re-run: bash helmupgrade.sh
 
@@ -81,6 +123,11 @@ UNINSTALL
 ---------
 helm uninstall podwatcher -n podwatcher
 kubectl delete namespace podwatcher
+
+
+HIGH AVAILABILITY
+-----------------
+To run 2 replicas with automatic leader election, see ha/HA.md
 
 
 SUPPORT
@@ -98,5 +145,5 @@ see our EKS Observability Accelerator on AWS Marketplace:
 https://aws.amazon.com/marketplace/management/products/prod-q7pq2jyv7boqq
 
 
-As a buyer-deployed product, the customer is responsible for the underlying infrastructure
-(VPC, EKS, IAM) and associated compute costs.
+As a buyer-deployed product, the customer is responsible for the underlying
+infrastructure (VPC, EKS, IAM) and associated compute costs.
