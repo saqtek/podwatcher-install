@@ -23,8 +23,17 @@ install, scoped to the release namespace only.
 
 ## Scale up to 2 replicas
 
+First re-authenticate to ECR if your token has expired (tokens expire after 12 hours):
+
 ```bash
-bash ha-scale-up.sh
+aws ecr get-login-password --region us-east-1 | helm registry login --username AWS --password-stdin 709825985650.dkr.ecr.us-east-1.amazonaws.com
+```
+
+Edit `ha/ha-scale-up.sh` and set the same variables you used in `helmupgrade.sh`
+(CLUSTER_NAME, TEAMS_WEBHOOK, SLACK_WEBHOOK, PAGERDUTY_ROUTING_KEY), then run:
+
+```bash
+bash ha/ha-scale-up.sh
 ```
 
 This enables leader election and increases the replica count to 2 in a single
@@ -42,8 +51,10 @@ Expected output — one pod logs `is_leader=true`, the other `is_leader=false`.
 
 ## Scale back to 1 replica
 
+Edit `ha/ha-scale-down.sh` and set the same variables, then run:
+
 ```bash
-bash ha-scale-down.sh
+bash ha/ha-scale-down.sh
 ```
 
 This disables leader election and reduces to a single replica. The Lease object

@@ -3,14 +3,14 @@ set -euo pipefail
 
 # -----------------------------------------------------------------------------
 # PodWatcher — Scale back to 1 replica, disable leader election
-# Edit the variables below to match your helmupgrade.sh settings.
+# Set the variables below to match your helmupgrade.sh settings.
 # -----------------------------------------------------------------------------
 
-CLUSTER_NAME="my-cluster"
-WATCH_NAMESPACES=""
-TEAMS_WEBHOOK=""
-SLACK_WEBHOOK=""
-PAGERDUTY_ROUTING_KEY=""
+CLUSTER_NAME="my-cluster"            # must match your helmupgrade.sh value
+WATCH_NAMESPACES=""                  # must match your helmupgrade.sh value
+TEAMS_WEBHOOK=""                     # paste your Teams webhook URL (optional)
+SLACK_WEBHOOK=""                     # paste your Slack webhook URL (optional)
+PAGERDUTY_ROUTING_KEY=""             # paste your PagerDuty routing key (optional)
 
 # -----------------------------------------------------------------------------
 # Do not edit below this line

@@ -1,74 +1,102 @@
-PodWatcher v1.0.7 — Installation Guide
-  =======================================
+PodWatcher v1.0.8 — Installation Guide
+=======================================
 
-  PREREQUISITES
-  -------------
-  - kubectl configured and connected to your EKS cluster
-  - Helm 3.8 or later (OCI support required)
-  - AWS Marketplace subscription active
-  - Microsoft Teams or Slack webhook URL (optional — PodWatcher starts without one)
-
-
-  STEP 1 — Download the install script
-  -------------------------------------
-  curl -O https://raw.githubusercontent.com/saqtek/podwatcher-install/main/helmupgrade.sh
+PREREQUISITES
+-------------
+- kubectl configured and connected to your EKS cluster
+- Helm 3.8 or later (OCI support required)
+- AWS CLI configured with credentials for your cluster account
+- AWS Marketplace subscription active
+- Microsoft Teams, Slack, or PagerDuty webhook URL (optional — PodWatcher starts without one)
 
 
-  STEP 2 — Edit the script variables
-  ------------------------------------
-  Open helmupgrade.sh and set:
+STEP 0 — Confirm you are connected to the correct cluster
+----------------------------------------------------------
+kubectl config current-context
 
-    CLUSTER_NAME    — name shown on every alert card (e.g. "prod-us-east-1")
-    TEAMS_WEBHOOK   — your Microsoft Teams incoming webhook URL
-    SLACK_WEBHOOK   — your Slack incoming webhook URL (optional)
-    WATCH_NAMESPACES — comma-separated namespaces to monitor, or leave blank for all
+Verify the output matches your intended cluster before proceeding.
 
 
-  STEP 3 — Run the install
-  -------------------------
-  bash helmupgrade.sh
-
-  This runs: helm upgrade --install with --atomic
-  If any step fails the install rolls back automatically.
+STEP 1 — Download the install script
+-------------------------------------
+curl -O https://raw.githubusercontent.com/saqtek/podwatcher-install/main/helmupgrade.sh
 
 
-  STEP 4 — Verify
-  ----------------
-  kubectl get pods -n podwatcher
-  kubectl logs -n podwatcher -l app.kubernetes.io/name=podwatcher --tail=20
+STEP 2 — Authenticate to AWS Marketplace ECR
+---------------------------------------------
+aws ecr get-login-password --region us-east-1 | helm registry login --username AWS --password-stdin 709825985650.dkr.ecr.us-east-1.amazonaws.com
+
+You should see: Login Succeeded
 
 
-  STEP 5 — Confirm alerts are working
-  -------------------------------------
-  kubectl run test-crash --image=busybox --restart=Always --namespace=default -- sh -c "exit 1"
+STEP 3 — Edit the script variables
+------------------------------------
+Open helmupgrade.sh and set:
 
-  Wait ~60 seconds. A P2 alert card should arrive in your Teams or Slack channel.
+  CLUSTER_NAME          — name shown on every alert card (e.g. "prod-us-east-1")
+  TEAMS_WEBHOOK         — your Microsoft Teams incoming webhook URL (optional)
+  SLACK_WEBHOOK         — your Slack incoming webhook URL (optional)
+  PAGERDUTY_ROUTING_KEY — your PagerDuty Events API v2 integration key (optional)
+  WATCH_NAMESPACES      — comma-separated namespaces to monitor, or leave blank for all
 
-  Clean up:
-  kubectl delete pod test-crash --ignore-not-found
-
-
-  UPGRADING
-  ---------
-  To upgrade to a new version, update the --version flag in helmupgrade.sh and re-run:
-  bash helmupgrade.sh
-
-
-  UNINSTALL
-  ---------
-  helm uninstall podwatcher -n podwatcher
-  kubectl delete namespace podwatcher
+NOTE — AWS Marketplace subscribers: the ServiceAccount name is automatically
+substituted by AWS at deploy time. If installing directly (non-MP), add:
+  --set serviceAccount.name=podwatcher
 
 
-  SUPPORT
-  -------
-  Documentation : https://github.com/saqtek/podwatcher-install
-  AWS Marketplace: https://aws.amazon.com/marketplace
+STEP 4 — Run the install
+-------------------------
+bash helmupgrade.sh
+
+This runs: helm upgrade --install with --atomic
+If any step fails the install rolls back automatically.
 
 
-  NEXT STEP — Grafana Dashboard Suite
-  -------------------------------------
-  PodWatcher delivers real-time alerts. For historical trend analysis, SLO
-  compliance reporting, and executive dashboards on Amazon Managed Grafana,
-  see our EKS Observability Accelerator on AWS Marketplace:
-  https://aws.amazon.com/marketplace/management/products/prod-q7pq2jyv7boqq
+STEP 5 — Verify
+----------------
+kubectl get pods -n podwatcher
+kubectl logs -n podwatcher -l app.kubernetes.io/name=podwatcher --tail=20
+
+Expected: pod status 1/1 Running, logs show "PodWatcher ACTIVE"
+
+
+STEP 6 — Confirm alerts are working
+-------------------------------------
+kubectl run test-crash --image=busybox --restart=Always --namespace=default -- sh -c "exit 1"
+
+Wait ~60 seconds. A P2 alert card should arrive in your Teams, Slack, or PagerDuty channel.
+
+Clean up:
+kubectl delete pod test-crash --ignore-not-found
+
+
+UPGRADING
+---------
+1. Run STEP 2 (ECR login) — token expires after 12 hours
+2. Update the --version flag in helmupgrade.sh to the new version
+3. Re-run: bash helmupgrade.sh
+
+
+UNINSTALL
+---------
+helm uninstall podwatcher -n podwatcher
+kubectl delete namespace podwatcher
+
+
+SUPPORT
+-------
+support@saqtek.com
+Documentation: https://github.com/saqtek/podwatcher-install
+AWS Marketplace: https://aws.amazon.com/marketplace
+
+
+NEXT STEP — Grafana Dashboard Suite
+-------------------------------------
+PodWatcher delivers real-time alerts. For historical trend analysis, SLO
+compliance reporting, and executive dashboards on Amazon Managed Grafana,
+see our EKS Observability Accelerator on AWS Marketplace:
+https://aws.amazon.com/marketplace/management/products/prod-q7pq2jyv7boqq
+
+
+As a buyer-deployed product, the customer is responsible for the underlying infrastructure
+(VPC, EKS, IAM) and associated compute costs.
