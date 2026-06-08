@@ -12,6 +12,12 @@ WATCH_NAMESPACES=""                  # must match your helmupgrade.sh value
 TEAMS_WEBHOOK=""                     # paste your Teams webhook URL (optional)
 SLACK_WEBHOOK=""                     # paste your Slack webhook URL (optional)
 PAGERDUTY_ROUTING_KEY=""             # paste your PagerDuty routing key (optional)
+SA_NAME=""  # AWS Marketplace subscribers: leave blank — AWS substitutes the
+            # ServiceAccount name automatically at deploy time.
+            # Direct installs (AKS, GKE, on-prem, self-managed EKS): set to
+            # "podwatcher" — a ServiceAccount will be created with that name.
+            # If left blank on a direct install, the deploy will fail with an
+            # invalid name error.
 
 # -----------------------------------------------------------------------------
 # Do not edit below this line
@@ -25,6 +31,7 @@ helm upgrade --install podwatcher \
   --set clusterName="${CLUSTER_NAME}" \
   --set monitoring.watchNamespaces="${WATCH_NAMESPACES}" \
   --set image.tag=1.0.6 \
+  ${SA_NAME:+--set serviceAccount.name="${SA_NAME}"} \
   --set replicaCount=2 \
   --set leaderElection.enabled=true \
   ${TEAMS_WEBHOOK:+--set webhooks.teams="${TEAMS_WEBHOOK}"} \
