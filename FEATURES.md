@@ -64,4 +64,13 @@ PRICING
 
 Flat-rate per cluster. One license covers your entire cluster regardless of node count — no per-node fees, no hidden scaling costs.
 
-Available on AWS Marketplace: https://aws.amazon.com/marketplace
+Available on AWS Marketplace: https://aws.amazon.com/marketplace/pp/prodview-ggifdgzilupgq
+
+COMPLETE YOUR OBSERVABILITY STACK
+
+PodWatcher delivers real-time incident intelligence. For historical trend analysis, SLO compliance reporting, and executive dashboards on Amazon Managed Grafana, see the companion product:
+
+EKS Observability Accelerator: MTTR Reduction and Dashboard Suite
+https://aws.amazon.com/marketplace/pp/prodview-jw5af333chodi
+
+Together, PodWatcher and the EKS Observability Accelerator give platform and SRE teams a complete observability stack — real-time alerting with root cause analysis, and historical dashboards with SLO reporting — deployed entirely within your own VPC.

@@ -142,7 +142,7 @@ NEXT STEP — Grafana Dashboard Suite
 PodWatcher delivers real-time alerts. For historical trend analysis, SLO
 compliance reporting, and executive dashboards on Amazon Managed Grafana,
 see our EKS Observability Accelerator on AWS Marketplace:
-https://aws.amazon.com/marketplace/management/products/prod-q7pq2jyv7boqq
+https://aws.amazon.com/marketplace/pp/prodview-jw5af333chodi
 
 
 As a buyer-deployed product, the customer is responsible for the underlying
