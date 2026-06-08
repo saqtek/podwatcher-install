@@ -8,7 +8,7 @@ Instant Error Mapping
 PodWatcher uses an internal exit-code mapping engine covering OOMKilled, segmentation faults, SIGTERM events, and more. It translates Kubernetes failure states into human-readable explanations and provides preformatted kubectl troubleshooting commands.
 
 Reduced MTTR (Mean Time to Recovery)
-PodWatcher surfaces root-cause failure information and the last 15 lines of logs directly in Slack, Microsoft Teams, or PagerDuty. This reduces context switching and significantly shortens recovery time from minutes to seconds.
+PodWatcher surfaces root-cause failure information and relevant log signals from the last 50 lines of container output — noise filtered, error-first — directly in Slack, Microsoft Teams, or PagerDuty. This reduces context switching and significantly shortens recovery time from minutes to seconds.
 
 SLA and SLO Protection
 PodWatcher helps maintain service level agreements by detecting unhealthy pod states before they impact end users. It continuously tracks restarts and waiting states to support error budget management.
