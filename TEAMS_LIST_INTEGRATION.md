@@ -6,6 +6,15 @@
 Microsoft Teams tab — filterable, sortable, persistent. Your SRE team sees a
 live triage dashboard without needing Kubernetes access.
 
+> **Support scope:** The Teams List integration runs entirely on Microsoft
+> SharePoint, Power Automate, and Microsoft Teams — included in your existing
+> Microsoft 365 licence. SAQTEK provides this guide free of charge as a
+> convenience. For issues with SharePoint, Power Automate, or Teams
+> configuration, contact **Microsoft Support** (https://support.microsoft.com)
+> or your Microsoft 365 administrator.
+> SAQTEK support covers PodWatcher only — alerts, Helm deployment, and
+> webhook connectivity.
+
 ---
 
 ## What this solves
@@ -490,6 +499,11 @@ Expected flow structure:
 ---
 
 ## Troubleshooting
+
+> **Before raising a support ticket:** SharePoint, Power Automate, and Teams
+> issues should be directed to Microsoft Support or your M365 administrator —
+> not SAQTEK. SAQTEK can help if PodWatcher is not sending alerts or the
+> webhook URL is not connecting.
 
 ### Teams card appears but no list row
 
