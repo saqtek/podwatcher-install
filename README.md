@@ -28,7 +28,7 @@ the complete step-by-step installation guide.
 | `helmupgrade.sh` | Helm install / upgrade script — edit variables and run |
 | `USAGE.txt` | Full installation guide including prerequisites and verification |
 | `SECURITY.md` | RBAC permissions, CIS benchmark controls, vulnerability scan results |
-| `TEAMS_LIST_INTEGRATION.md` | Available after onboarding — contact support@saqtek.com |
+| `TEAMS_LIST_INTEGRATION.md` | Set up a persistent alert dashboard in Microsoft Teams Lists |
 | `ha/` | High availability deployment (2 replicas + leader election) |
 
 ---
