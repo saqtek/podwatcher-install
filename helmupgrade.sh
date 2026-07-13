@@ -24,7 +24,7 @@ helm upgrade --install podwatcher \
   --atomic \
   --set clusterName="${CLUSTER_NAME}" \
   --set monitoring.watchNamespaces="${WATCH_NAMESPACES}" \
-  --set image.tag=1.0.8 \
+  --set image.tag=1.0.6 \
   ${SA_NAME:+--set serviceAccount.name="${SA_NAME}"} \
   ${TEAMS_WEBHOOK:+--set webhooks.teams="${TEAMS_WEBHOOK}"} \
   ${SLACK_WEBHOOK:+--set webhooks.slack="${SLACK_WEBHOOK}"} \
