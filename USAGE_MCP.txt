@@ -1,0 +1,146 @@
+PodWatcher MCP v1.0.1 — Installation Guide
+==========================================
+
+WHAT IS PODWATCHER MCP
+-----------------------
+PodWatcher MCP is an AI agent integration layer that makes your PodWatcher
+instance queryable by Kiro and other MCP-compatible AI agents.
+
+Once deployed, Kiro can call four tools directly inside your cluster:
+
+  check_readiness        — Is PodWatcher connected to the Kubernetes API?
+  get_incidents          — Retrieve open P1/P2 incidents with kubectl fix commands
+  get_metrics            — Prometheus metrics: alert counts, queue depth, GenAI SLIs
+  get_entitlement_status — Verify your AWS Marketplace license tier
+
+All data stays inside your VPC. The MCP server communicates with PodWatcher
+over cluster-internal HTTP — no telemetry leaves the cluster.
+
+
+PREREQUISITES
+-------------
+- PodWatcher already installed and running in your cluster
+  (see USAGE.txt or run helmupgrade.sh first)
+- AWS CLI configured with cluster access
+- Helm 3.8+
+- kubectl configured with cluster-admin access
+- AWS Marketplace subscription to PodWatcher MCP active
+
+
+STEP 0 — Confirm PodWatcher is running
+----------------------------------------
+kubectl get pods -n podwatcher
+
+Expected: podwatcher pod status 1/1 Running.
+If not running, install PodWatcher first using helmupgrade.sh.
+
+
+STEP 1 — Download the install script
+--------------------------------------
+curl -O https://raw.githubusercontent.com/saqtek/podwatcher-install/main/helmupgrade_mcp.sh
+
+
+STEP 2 — Authenticate to AWS Marketplace ECR
+---------------------------------------------
+aws ecr get-login-password --region us-east-1 \
+  | helm registry login --username AWS --password-stdin \
+    709825985650.dkr.ecr.us-east-1.amazonaws.com
+
+You should see: Login Succeeded
+
+Note: The ECR token expires after 12 hours. Re-run before upgrading.
+
+
+STEP 3 — Edit the script variables
+------------------------------------
+Open helmupgrade_mcp.sh and set:
+
+  CLUSTER_NAME          — your EKS cluster name (e.g. "prod-us-east-1")
+                          Used to look up the OIDC provider for IAM role trust.
+  AWS_REGION            — AWS region where the cluster runs (e.g. "us-east-1")
+  PODWATCHER_HOST       — Kubernetes Service name of your PodWatcher instance
+                          Default: "podwatcher" (correct if installed via helmupgrade.sh)
+  PODWATCHER_NAMESPACE  — Namespace where PodWatcher is installed
+                          Default: "podwatcher"
+
+
+STEP 4 — Run the install
+-------------------------
+bash helmupgrade_mcp.sh
+
+The script will:
+  1. Resolve the OIDC provider for your EKS cluster
+  2. Create an IAM role "podwatcher-mcp" with IRSA trust and License Manager policy
+  3. Attach the license-manager:CheckoutLicense inline policy
+  4. Deploy the Helm chart from AWS Marketplace ECR using helm upgrade --install
+
+If any step fails, helm --atomic rolls back automatically.
+
+
+STEP 5 — Verify the deployment
+--------------------------------
+kubectl get pods -n podwatcher
+kubectl logs -n podwatcher deployment/podwatcher-mcp --tail=20
+
+Expected: pod status 1/1 Running, logs show "Starting PodWatcher MCP server"
+
+
+STEP 6 — Test live from your workstation
+------------------------------------------
+kubectl port-forward svc/podwatcher-mcp 8090:8090 -n podwatcher &
+
+curl -s http://localhost:8090/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"check_readiness","arguments":{}}}' \
+  | python3 -m json.tool
+
+Expected output includes: "ready": true
+
+Clean up port-forward:
+kill %1
+
+
+DATA SECURITY & RBAC
+---------------------
+- Data isolation  : Runs entirely within your VPC. No data leaves the cluster
+                    except via your configured notification endpoints.
+- Encryption      : All outbound communication uses TLS 1.2+.
+- Stateless       : No persistent storage. All data processed in-memory.
+- License check   : AWS License Manager CheckoutLicense called via IRSA —
+                    no credentials stored in the cluster.
+- RBAC            : Inherits PodWatcher's read-only ServiceAccount. No
+                    additional cluster permissions required.
+- Container       : Non-root (UID 10001), read-only root filesystem, all
+                    Linux capabilities dropped, seccomp RuntimeDefault.
+
+
+RESOURCE QUOTAS
+---------------
+- Memory limit  : 512Mi
+- CPU limit     : 400m (0.4 vCPU)
+- Memory request: 128Mi
+- CPU request   : 100m
+
+
+UPGRADING
+----------
+1. Re-run STEP 2 (ECR login — token expires after 12 hours)
+2. Update the --version flag in helmupgrade_mcp.sh to the new chart version
+3. Re-run: bash helmupgrade_mcp.sh
+
+
+UNINSTALL
+----------
+helm uninstall podwatcher-mcp -n podwatcher
+kubectl delete serviceaccount podwatcher-mcp-sa -n podwatcher
+
+The IAM role "podwatcher-mcp" in your AWS account can be removed separately:
+aws iam delete-role-policy --role-name podwatcher-mcp --policy-name PodWatcherMCPLicenseManager
+aws iam delete-role --role-name podwatcher-mcp
+
+
+SUPPORT
+-------
+support@saqtek.com
+Documentation: https://github.com/saqtek/podwatcher-install
+AWS Marketplace: https://aws.amazon.com/marketplace
