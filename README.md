@@ -25,8 +25,10 @@ the complete step-by-step installation guide.
 
 | File | Purpose |
 |---|---|
-| `helmupgrade.sh` | Helm install / upgrade script — edit variables and run |
-| `USAGE.txt` | Full installation guide including prerequisites and verification |
+| `helmupgrade.sh` | PodWatcher — Helm install / upgrade script |
+| `USAGE.txt` | PodWatcher — full installation guide |
+| `helmupgrade_mcp.sh` | PodWatcher MCP — zero-touch Helm install script (creates IAM role + deploys chart) |
+| `USAGE_MCP.txt` | PodWatcher MCP — full installation guide |
 | `SECURITY.md` | RBAC permissions, CIS benchmark controls, vulnerability scan results |
 | `TEAMS_LIST_INTEGRATION.md` | Set up a persistent alert dashboard in Microsoft Teams Lists |
 | `ha/` | High availability deployment (2 replicas + leader election) |
