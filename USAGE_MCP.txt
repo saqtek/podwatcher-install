@@ -26,6 +26,12 @@ PREREQUISITES
 - kubectl configured with cluster-admin access
 - AWS Marketplace subscription to PodWatcher MCP active
 
+Supported Kubernetes distributions:
+  EKS   — zero-touch IRSA (helmupgrade_mcp.sh handles everything automatically)
+  AKS   — supported via Kubernetes Secret (see CROSS-CLOUD section below)
+  GKE   — supported via Kubernetes Secret (see CROSS-CLOUD section below)
+  Other — any Kubernetes 1.24+ cluster with AWS credentials injected
+
 
 STEP 0 — Confirm PodWatcher is running
 ----------------------------------------
@@ -106,8 +112,9 @@ DATA SECURITY & RBAC
                     except via your configured notification endpoints.
 - Encryption      : All outbound communication uses TLS 1.2+.
 - Stateless       : No persistent storage. All data processed in-memory.
-- License check   : AWS License Manager CheckoutLicense called via IRSA —
-                    no credentials stored in the cluster.
+- License check   : AWS License Manager CheckoutLicense called via IRSA (EKS)
+                    or Kubernetes Secret (AKS/GKE) — minimum permission only
+                    (license-manager:CheckoutLicense). No other AWS access.
 - RBAC            : Inherits PodWatcher's read-only ServiceAccount. No
                     additional cluster permissions required.
 - Container       : Non-root (UID 10001), read-only root filesystem, all
@@ -137,6 +144,53 @@ kubectl delete serviceaccount podwatcher-mcp-sa -n podwatcher
 The IAM role "podwatcher-mcp" in your AWS account can be removed separately:
 aws iam delete-role-policy --role-name podwatcher-mcp --policy-name PodWatcherMCPLicenseManager
 aws iam delete-role --role-name podwatcher-mcp
+
+
+CROSS-CLOUD INSTALL (AKS / GKE / ON-PREM)
+------------------------------------------
+PodWatcher MCP runs on any Kubernetes cluster. On non-EKS clusters, provide
+AWS credentials via a Kubernetes Secret instead of IRSA.
+
+Step 1 — Create a dedicated IAM user in your AWS account (one-time):
+
+  aws iam create-user --user-name podwatcher-mcp-crosscloud
+  aws iam put-user-policy \
+    --user-name podwatcher-mcp-crosscloud \
+    --policy-name PodWatcherMCPLicenseManager \
+    --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"license-manager:CheckoutLicense","Resource":"*"}]}'
+  aws iam create-access-key --user-name podwatcher-mcp-crosscloud
+
+  Copy the AccessKeyId and SecretAccessKey from the output.
+
+Step 2 — Create a Kubernetes Secret in your cluster:
+
+  kubectl create secret generic podwatcher-mcp-aws-creds \
+    --from-literal=accessKeyId=<YOUR_ACCESS_KEY_ID> \
+    --from-literal=secretAccessKey=<YOUR_SECRET_ACCESS_KEY> \
+    -n podwatcher
+
+Step 3 — Install the Helm chart with the secret wired in:
+
+  aws ecr get-login-password --region us-east-1 \
+    | helm registry login --username AWS --password-stdin \
+      709825985650.dkr.ecr.us-east-1.amazonaws.com
+
+  helm upgrade --install podwatcher-mcp \
+    oci://709825985650.dkr.ecr.us-east-1.amazonaws.com/saqtek-us/podwatcher-mcp \
+    --version 1.0.1 \
+    --namespace podwatcher \
+    --create-namespace \
+    --atomic \
+    --set podwatcher.host=podwatcher \
+    --set awsMarketplace.productSku=prod-b7m2oxa3yjgpo \
+    --set "awsMarketplace.keyFingerprint=aws:294406891311:AWS/Marketplace:issuer-fingerprint" \
+    --set awsMarketplace.credentialsSecret=podwatcher-mcp-aws-creds
+
+Note: Rotate the IAM access key quarterly. The IAM user has only one permission
+(license-manager:CheckoutLicense) — minimum blast radius.
+
+The check_readiness, get_incidents, and get_metrics tools work on any cloud
+with no AWS credentials at all. Only get_entitlement_status requires AWS access.
 
 
 SUPPORT
