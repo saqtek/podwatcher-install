@@ -108,8 +108,9 @@ kill %1
 
 DATA SECURITY & RBAC
 ---------------------
-- Data isolation  : Runs entirely within your VPC. No data leaves the cluster
-                    except via your configured notification endpoints.
+- Data isolation  : Runs as pods inside your own network boundary. Nothing is
+                    sent to SAQTEK or any third party. Only the optional
+                    entitlement check calls out, and it sends no cluster data.
 - Encryption      : All outbound communication uses TLS 1.2+.
 - Stateless       : No persistent storage. All data processed in-memory.
 - License check   : AWS License Manager CheckoutLicense called via IRSA (EKS)
