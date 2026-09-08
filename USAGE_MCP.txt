@@ -9,7 +9,7 @@ instance queryable by Kiro and other MCP-compatible AI agents.
 Once deployed, Kiro can call four tools directly inside your cluster:
 
   check_readiness        — Is PodWatcher connected to the Kubernetes API?
-  get_incidents          — Retrieve open P1/P2 incidents with kubectl fix commands
+  get_incidents          — Retrieve open P1/P2 incidents, filterable by namespace
   get_metrics            — Prometheus metrics: alert counts, queue depth, GenAI SLIs
   get_entitlement_status — Verify your AWS Marketplace license tier
 
@@ -88,7 +88,7 @@ STEP 5 — Verify the deployment
 kubectl get pods -n podwatcher
 kubectl logs -n podwatcher deployment/podwatcher-mcp --tail=20
 
-Expected: pod status 1/1 Running, logs show "Starting PodWatcher MCP server"
+Expected: pod status 1/1 Running, logs show "PodWatcher MCP Server starting"
 
 
 STEP 6 — Test live from your workstation
@@ -115,8 +115,8 @@ DATA SECURITY & RBAC
 - License check   : AWS License Manager CheckoutLicense called via IRSA (EKS)
                     or Kubernetes Secret (AKS/GKE) — minimum permission only
                     (license-manager:CheckoutLicense). No other AWS access.
-- RBAC            : Inherits PodWatcher's read-only ServiceAccount. No
-                    additional cluster permissions required.
+- RBAC            : Own ServiceAccount with no Role or ClusterRole bound — no
+                    access to any Kubernetes resource.
 - Container       : Non-root (UID 10001), read-only root filesystem, all
                     Linux capabilities dropped, seccomp RuntimeDefault.
 
